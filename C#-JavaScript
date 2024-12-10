@@ -1,0 +1,180 @@
+// C# Encryption Javascript Decryption (PII)
+
+public static (string encryptedText, string base64Key, string base64Iv) Encrypt(string plainText)
+{
+    using (Aes aes = Aes.Create())
+    {
+        aes.KeySize = 128;
+        aes.BlockSize = 128;
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.PKCS7;
+        aes.GenerateKey();
+        aes.GenerateIV();
+
+        byte[] key = aes.Key;
+        byte[] iv = aes.IV;
+        byte[] encrypted;
+
+        using (ICryptoTransform encryptor = aes.CreateEncryptor(key, iv))
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                {
+                    using (StreamWriter sw = new StreamWriter(cs))
+                    {
+                        sw.Write(plainText);
+                    }
+                    encrypted = ms.ToArray();
+                }
+            }
+        }
+
+        string base64Key = Convert.ToBase64String(key);
+        string base64Iv = Convert.ToBase64String(iv);
+        string base64EncryptedText = Convert.ToBase64String(encrypted);
+
+        return (base64EncryptedText, base64Key, base64Iv);
+    }
+}
+
+function CheckData() {
+    $.ajax({
+        url: '/Login/PassKey',
+        dataType: 'json',
+        success: function (data) {
+            const data12 = {
+                key: data.key,
+                iv: data.iv
+            };
+
+            // Serialize the object to a JSON string
+            const serializedData = JSON.stringify(data12);
+
+
+            // Store the serialized data in sessionStorage
+            sessionStorage.setItem('KeyManager', serializedData);
+            var dec = decryptAES(data.encryptedText);
+            //let returnValue = data.MyValue;
+            CheckData1();
+        }
+    });
+}
+
+function decryptAES(encryptedText) {
+    // Retrieve the serialized data from sessionStorage
+    const serializedData = sessionStorage.getItem('KeyManager');
+
+    // Check if data exists
+    if (serializedData) {
+        // Deserialize the JSON string back to an object
+        var data1 = JSON.parse(serializedData);
+        var dk1 = data1.key;
+        var dk2 = data1.iv;
+        const key = CryptoJS.enc.Base64.parse(dk1);
+        const iv = CryptoJS.enc.Base64.parse(dk2);
+        const encryptedBytes = CryptoJS.enc.Base64.parse(encryptedText);
+        const decrypted = CryptoJS.AES.decrypt(
+            { ciphertext: encryptedBytes },
+            key,
+            {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            }
+        );
+        return decrypted.toString(CryptoJS.enc.Utf8);
+    }
+}
+
+-----------------
+// PassWord javascript Encyption to C# Decryption 
+  //function
+const key1 = CryptoJS.enc.Base64.stringify(CryptoJS.lib.WordArray.random(16)); // Generate a random key
+const iv1 = CryptoJS.enc.Base64.stringify(CryptoJS.lib.WordArray.random(16));  // Generate a random IV
+var encryptedPassword = encryptPassword(txtpassword, key1, iv1);
+encryptedPassword = encryptedPassword + '`' + key1 + '`' + iv1;
+$('#Password').val(encryptedPassword);
+
+function encryptPassword(password, base64Key, base64Iv) {
+    debugger;
+    const key = CryptoJS.enc.Base64.parse(base64Key);
+    const iv = CryptoJS.enc.Base64.parse(base64Iv);
+    const encrypted = CryptoJS.AES.encrypt(
+        CryptoJS.enc.Utf8.parse(password),
+        key,
+        {
+            keySize: 128 / 8,
+            iv: iv,
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7
+        }
+    );
+    return encrypted.toString();
+}
+
+function bindDataToForm(formId, data) {
+            const form = document.getElementById(formId);
+
+            // Ensure the form exists
+            if (!form) {
+                console.error('Form with id "' + formId + '" not found.');
+                return;
+            }
+
+            // Loop through each property of the data object
+            for (const property in data) {
+                // Find the input element by id inside the specific form
+                const input = form.querySelector(`#${property}`);
+			if (data[property] != null || data[property] != undefined) {
+                // If it's an input element
+                if (input && input.tagName === 'INPUT') {
+                    input.value = data[property];  // Set the value for <input> fields
+                }
+
+                // If it's a select element
+                else if (input && input.tagName === 'SELECT') {
+                    input.value = data[property];  // Set the value for <select> elements
+                }
+
+                // If it's a textarea element
+                else if (input && input.tagName === 'TEXTAREA') {
+                    input.value = data[property];  // Set the value for <textarea> elements
+
+                    // If using CKEditor, set the value using CKEditor API
+                    if (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances[property]) {
+                        CKEDITOR.instances[property].setData(data[property].toString());
+                    }
+                }
+				}
+            }
+        }
+
+function ShowModal(e,mode){
+e.preventDefault();
+    var modalId = $(e.currentTarget).attr("data-target");
+    var view=mode==true?'show':'hide';
+    $(modalId).modal(view);
+}
+
+function GetFormValue(e){
+    e.preventDefault();
+    var formData = {};
+    var formId=e.currentTarget.offsetParent.children[1].children[0].id;
+    var form = document.getElementById(formId);
+    Array.from(form.elements).forEach(function (field) {
+        var fieldName = field.id;
+        var fieldValue = field.value;
+        if (fieldName.indexOf('_') !== -1) {
+            var nestedFieldName = fieldName.split('_')[0];
+            if (!formData[nestedFieldName]) {
+                formData[nestedFieldName] = {};
+            }
+            formData[nestedFieldName][fieldName.split('_')[1]] = fieldValue;
+        } else {
+            formData[fieldName] = fieldValue;
+        }
+    });
+    var jsonData = JSON.stringify(formData);
+    console.log(jsonData);
+}
